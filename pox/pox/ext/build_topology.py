@@ -137,7 +137,7 @@ def main():
 	topo = JellyFishTop()
 	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
 	experiment(net)
-	print "TESTING HERE"
+        os.system('sudo mn -c')
 
 if __name__ == "__main__":
 	main()
