@@ -18,13 +18,16 @@ from subprocess import Popen
 from time import sleep, time
 from collections import defaultdict
 
+
+# Choosing fairly takes significantly more time.
+CHOOSE_EQUAL_PATHS_FAIRLY = False
 num_servers = 686
-k_total_ports = 48
-r_reserved_ports = 36
+k_total_ports = 32
+r_reserved_ports = 25
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 
 class JellyFishTop(Topo):
-    ''' TODO, build your topology here'''
+
     def no_mappings_left(self, s1, switch_mappings, racks, saturated_switches, switch_wire_count, all_switches):
         # Get an available switch
         available_switches = list(set(all_switches) - set(switch_mappings[s1]))
@@ -126,6 +129,7 @@ class JellyFishTop(Topo):
         for i in range(len(racks)):
             for j in switch_mappings[i]:
                 if j > i:
+                    print 's%d <-> s%d' % (i, j)
                     self.addLink(racks[i], racks[j])
 	print "Done bulding"
 
@@ -133,33 +137,72 @@ def writeOutJson(link_counts, filename):
         with open(filename, 'w') as file:
             file.write(json.dumps(link_counts))
 
+def randomized_shortest_simple_paths(net, src, dst):
+  """Randomize the order of equal-length paths.
+
+  This is a drop-in replacement for nx.shortest_simple_paths(), but it takes
+  significantly more time.
+  """
+  paths = nx.shortest_simple_paths(net, src, dst)
+  equal_len_paths = []
+  current_len = 0
+  for p in paths:
+    if len(p) > current_len:
+      random.shuffle(equal_len_paths)
+      for eq_p in equal_len_paths:
+        yield eq_p
+      equal_len_paths = []
+      current_len = len(p)
+    equal_len_paths.append(p)
+
+  random.shuffle(equal_len_paths)
+  for eq_p in equal_len_paths:
+    yield eq_p
+
 def eight_shortest_paths(matches, net):
-        link_counts = defaultdict(int)
+        link_counts = {}
+        for link in net.edges():
+            if link[0].startswith('s') and link[1].startswith('s'):
+                link_counts['%s-%s' % (link[0], link[1])] = 0
+                link_counts['%s-%s' % (link[1], link[0])] = 0
         for pair in matches:
             print pair
-	    paths = nx.shortest_simple_paths(net, pair[0], pair[1])
+            shortest_paths = nx.shortest_simple_paths
+            if CHOOSE_EQUAL_PATHS_FAIRLY:
+              shortest_paths = randomized_shortest_simple_paths
+	    paths = shortest_paths(net, pair[0], pair[1])
             count = 0
 	    for p in paths:
 		if count == 8:
 		    break
                 for i in range(1, len(p)):
-                    link_counts[p[i-1] + '-' + p[i]] += 1
+                    if p[i-1].startswith('s') and p[i].startswith('s'):
+                        link_counts[p[i-1] + '-' + p[i]] += 1
 		count += 1
 	print "RETURNING FROM 8SP"
         writeOutJson(link_counts, "8SP.txt")
 
 def ecmp_routing(matches, net, num):
-        link_counts = defaultdict(int)
-        # TODO write out links
+        link_counts = {}
+        for link in net.edges():
+            if link[0].startswith('s') and link[1].startswith('s'):
+                link_counts['%s-%s' % (link[0], link[1])] = 0
+                link_counts['%s-%s' % (link[1], link[0])] = 0
+
         for pair in matches:
-            paths = nx.shortest_simple_paths(net, pair[0], pair[1])
+            shortest_paths = nx.shortest_simple_paths
+            if CHOOSE_EQUAL_PATHS_FAIRLY:
+              shortest_paths = randomized_shortest_simple_paths
+	    paths = shortest_paths(net, pair[0], pair[1])
             paths_considered = []
 	    first = True
+            print '-----'
             for p in paths:
 		if first:
 		    smallest_len = len(p)
 		    first = False
                 if len(p) == smallest_len:
+                    print p
                     paths_considered.append(p)
                     if len(paths_considered) == num:
                         break
@@ -168,7 +211,8 @@ def ecmp_routing(matches, net, num):
 
             for p in paths_considered:
                 for i in range(1, len(p)):
-                    link_counts[p[i-1] + '-' + p[i]] += 1
+                    if p[i-1].startswith('s') and p[i].startswith('s'):
+                        link_counts[p[i-1] + '-' + p[i]] += 1
 
         writeOutJson(link_counts, "ECMP_LINKS_" + str(num) + ".txt")
 

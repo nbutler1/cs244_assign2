@@ -1,3 +1,5 @@
+import matplotlib as mpl
+mpl.use('Agg')  # This lets this script run within an ssh session.
 import matplotlib.pyplot as mtl
 import json
 import operator
