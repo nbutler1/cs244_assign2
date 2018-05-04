@@ -2,6 +2,8 @@ import math
 import os
 import random
 import sys
+import json
+import networkx
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
@@ -14,6 +16,8 @@ sys.path.append("../../")
 from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
+from collections import defaultdict
+from networkx import shortest_simple_paths
 
 num_servers = 686
 k_total_ports = 48
@@ -126,6 +130,69 @@ class JellyFishTop(Topo):
                     self.addLink(racks[i], racks[j])
 	print "Done bulding"
 
+def writeOutJson(link_counts, filename):
+        with open(filename, 'w') as file:
+            file.write(json.dumps(link_counts))
+
+def eight_shortest_paths(matches, net):
+        link_counts = defaultdict(int)
+        for pair in matches:
+            paths = shortest_simple_paths(net, pair[0], pair[1])
+            if len(paths) > 8:
+                paths = paths[:8]
+            for p in paths:
+                for i in range(1, len(paths)):
+                    link_counts[p[i-1] + '-' + p[i]] += 1
+        writeOutJson(link_counts, "8SP.txt")
+
+def ecmp_routing(matches, net, num):
+        link_counts = defaultdict(int)
+        # TODO write out links
+        for pair in matches:
+            paths = shortest_simple_paths(net, pair[0], pair[1])
+            smallest_len = len(paths[0])
+            paths_considered = []
+            for p in paths:
+                if len(p) == smallest_len:
+                    paths_considered.append(p)
+                    if len(paths_considered) == num:
+                        break
+                else:
+                    break
+
+            for p in paths_considered:
+                for i in range(1, len(paths)):
+                    link_counts[p[i-1] + '-' + p[i]] += 1
+
+        writeOutJson(link_counts, "ECMP_LINKS_" + str(num) + ".txt")
+
+def getShortestPathMeasures(net):
+        link_counts = defaultdict(int)
+        
+        # First Randomly match servers
+
+        print "MATCHING"
+        matches = []
+        not_matched = set([k for k in matches.keys()])
+        while len(not_matched) > 1:
+            h1, h2 = random.sampe(not_matched, 2)
+            not_matched.remove(h1)
+            not_matched.remove(h2)
+            matches.append((h1, h2))
+
+        # Convert to multiclass thing
+        print "CONVERTING"
+        new_topo = net.convertTo(networkx.MultiGraph)
+        
+        # Now, get shortest paths
+        print "8SP"
+        eight_shortest_paths(matches, new_topo)
+        print "ECMP 8"
+        ecmp_routing(matches, new_topo, 8)
+        print "ECMP 64"
+        ecmp_routing(matches, new_topo, 64)
+        
+
 
 def experiment(net):
         net.start()
@@ -134,10 +201,12 @@ def experiment(net):
         net.stop()
 
 def main():
-	topo = JellyFishTop()
-	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
-	experiment(net)
         os.system('sudo mn -c')
+	topo = JellyFishTop()
+	#net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
+	print "GETTING SHORTEST PATH"
+        getShortestPathMeasures(topo)
+        #experiment(net)
 
 if __name__ == "__main__":
 	main()
