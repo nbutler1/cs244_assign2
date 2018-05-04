@@ -3,7 +3,6 @@ import os
 import random
 import sys
 import json
-import networkx
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
@@ -13,11 +12,11 @@ from mininet.node import Controller
 from mininet.node import RemoteController
 from mininet.cli import CLI
 sys.path.append("../../")
+import networkx as nx
 from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
 from collections import defaultdict
-from networkx import shortest_simple_paths
 
 num_servers = 686
 k_total_ports = 48
@@ -137,7 +136,7 @@ def writeOutJson(link_counts, filename):
 def eight_shortest_paths(matches, net):
         link_counts = defaultdict(int)
         for pair in matches:
-            paths = shortest_simple_paths(net, pair[0], pair[1])
+            paths = nx.shortest_simple_paths(net, pair[0], pair[1])
             if len(paths) > 8:
                 paths = paths[:8]
             for p in paths:
@@ -149,7 +148,7 @@ def ecmp_routing(matches, net, num):
         link_counts = defaultdict(int)
         # TODO write out links
         for pair in matches:
-            paths = shortest_simple_paths(net, pair[0], pair[1])
+            paths = nx.shortest_simple_paths(net, pair[0], pair[1])
             smallest_len = len(paths[0])
             paths_considered = []
             for p in paths:
@@ -173,16 +172,16 @@ def getShortestPathMeasures(net):
 
         print "MATCHING"
         matches = []
-        not_matched = set([k for k in matches.keys()])
+        not_matched = set([k for k in range(num_servers)])
         while len(not_matched) > 1:
-            h1, h2 = random.sampe(not_matched, 2)
+            h1, h2 = random.sample(not_matched, 2)
             not_matched.remove(h1)
             not_matched.remove(h2)
             matches.append((h1, h2))
 
         # Convert to multiclass thing
         print "CONVERTING"
-        new_topo = net.convertTo(networkx.MultiGraph)
+        new_topo = net.convertTo(nx.Graph)
         
         # Now, get shortest paths
         print "8SP"
