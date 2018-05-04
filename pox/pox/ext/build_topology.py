@@ -137,11 +137,14 @@ def eight_shortest_paths(matches, net):
         link_counts = defaultdict(int)
         for pair in matches:
             paths = nx.shortest_simple_paths(net, pair[0], pair[1])
-            if len(paths) > 8:
-                paths = paths[:8]
-            for p in paths:
-                for i in range(1, len(paths)):
+            count = 8
+	    for p in paths:
+		if count == 8:
+		    break
+                for i in range(1, len(p)):
                     link_counts[p[i-1] + '-' + p[i]] += 1
+		count += 1
+	print "RETURNING FROM 8SP"
         writeOutJson(link_counts, "8SP.txt")
 
 def ecmp_routing(matches, net, num):
@@ -172,7 +175,7 @@ def getShortestPathMeasures(net):
 
         print "MATCHING"
         matches = []
-        not_matched = set([k for k in range(num_servers)])
+        not_matched = set(['h' + str(k) for k in range(num_servers)])
         while len(not_matched) > 1:
             h1, h2 = random.sample(not_matched, 2)
             not_matched.remove(h1)
@@ -181,8 +184,8 @@ def getShortestPathMeasures(net):
 
         # Convert to multiclass thing
         print "CONVERTING"
-        new_topo = net.convertTo(nx.Graph)
-        
+        new_topo = net.convertTo(nx.MultiGraph)
+	new_topo = nx.Graph(new_topo)        
         # Now, get shortest paths
         print "8SP"
         eight_shortest_paths(matches, new_topo)
