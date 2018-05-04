@@ -21,7 +21,7 @@ from collections import defaultdict
 num_servers = 686
 k_total_ports = 48
 r_reserved_ports = 36
-N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports)))
+N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 
 class JellyFishTop(Topo):
     ''' TODO, build your topology here'''
@@ -136,7 +136,8 @@ def writeOutJson(link_counts, filename):
 def eight_shortest_paths(matches, net):
         link_counts = defaultdict(int)
         for pair in matches:
-            paths = nx.shortest_simple_paths(net, pair[0], pair[1])
+            print pair
+	    paths = nx.shortest_simple_paths(net, pair[0], pair[1])
             count = 8
 	    for p in paths:
 		if count == 8:
@@ -152,9 +153,12 @@ def ecmp_routing(matches, net, num):
         # TODO write out links
         for pair in matches:
             paths = nx.shortest_simple_paths(net, pair[0], pair[1])
-            smallest_len = len(paths[0])
             paths_considered = []
+	    first = True
             for p in paths:
+		if first:
+		    smallest_len = len(p)
+		    first = False
                 if len(p) == smallest_len:
                     paths_considered.append(p)
                     if len(paths_considered) == num:
@@ -163,7 +167,7 @@ def ecmp_routing(matches, net, num):
                     break
 
             for p in paths_considered:
-                for i in range(1, len(paths)):
+                for i in range(1, len(p)):
                     link_counts[p[i-1] + '-' + p[i]] += 1
 
         writeOutJson(link_counts, "ECMP_LINKS_" + str(num) + ".txt")
@@ -185,7 +189,8 @@ def getShortestPathMeasures(net):
         # Convert to multiclass thing
         print "CONVERTING"
         new_topo = net.convertTo(nx.MultiGraph)
-	new_topo = nx.Graph(new_topo)        
+	new_topo = nx.Graph(new_topo)
+	print new_topo.__len__() 
         # Now, get shortest paths
         print "8SP"
         eight_shortest_paths(matches, new_topo)
