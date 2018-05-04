@@ -199,7 +199,6 @@ def get_permutation_map(server_list):
   assert len(server_list) > 1
   link_from = server_list
   link_to = list(server_list)
-  is_valid_map = lambda f, t: not any(f[i] == t[i] for i in range(len(f)))
   while any(x == y for x, y in zip(link_from, link_to)):
     random.shuffle(link_to)
   return zip(link_from, link_to)
