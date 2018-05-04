@@ -138,7 +138,7 @@ def eight_shortest_paths(matches, net):
         for pair in matches:
             print pair
 	    paths = nx.shortest_simple_paths(net, pair[0], pair[1])
-            count = 8
+            count = 0
 	    for p in paths:
 		if count == 8:
 		    break
@@ -178,13 +178,8 @@ def getShortestPathMeasures(net):
         # First Randomly match servers
 
         print "MATCHING"
-        matches = []
-        not_matched = set(['h' + str(k) for k in range(num_servers)])
-        while len(not_matched) > 1:
-            h1, h2 = random.sample(not_matched, 2)
-            not_matched.remove(h1)
-            not_matched.remove(h2)
-            matches.append((h1, h2))
+        matches = get_permutation_map(
+                ['h' + str(k) for k in range(num_servers)])
 
         # Convert to multiclass thing
         print "CONVERTING"
@@ -198,8 +193,16 @@ def getShortestPathMeasures(net):
         ecmp_routing(matches, new_topo, 8)
         print "ECMP 64"
         ecmp_routing(matches, new_topo, 64)
-        
 
+def get_permutation_map(server_list):
+  """Each member of the set must be mapped to a different member of the set."""
+  assert len(server_list) > 1
+  link_from = server_list
+  link_to = list(server_list)
+  is_valid_map = lambda f, t: not any(f[i] == t[i] for i in range(len(f)))
+  while any(x == y for x, y in zip(link_from, link_to)):
+    random.shuffle(link_to)
+  return zip(link_from, link_to)
 
 def experiment(net):
         net.start()
