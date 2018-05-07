@@ -18,7 +18,7 @@ from pox.ext.jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
 from collections import defaultdict
-
+from pox.ext.iperf_utils import iperfPairs
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
@@ -256,6 +256,10 @@ def run_iperf(arg):
 	print "RETURNING"
 	return speeds
 
+
+
+
+
 def experiment(net):
         """ Runs experiment"""
         net.start()
@@ -266,25 +270,15 @@ def experiment(net):
 	
         # Loop through and run iperf on matches.  DO WE NEED TO MULTITHREAD??
         seconds = 30 # How long to run iperf
-	tasks = [(net, m, seconds) for m in matches]
-        workers = ThreadPool(len(matches))
+
         print "RUNNING IPERFS"
-        results =  workers.map_async(run_iperf, tasks)
-        #for m in matches:
-        #    print m
-	    #net.ping(hosts=[net.get(m[0]), net.get(m[1])])
-        #    speeds = net.iperf(hosts=[net.get(m[0]), net.get(m[1])], seconds=30)
-        #    print speeds
-	print "ALL SCHEDULED"
-	# results.wait()
-	# For some reason ^ isnt working this is my hack
-	sleep(seconds * 2)
-	print "DONE WAITING"
-	try:
-        	print results.get()
-        except Exception as e:
-		print e
-	
+        servers, clients = [], []
+        for m in matches:
+            servers.append(net.get(m[0]))
+            clients.append(net.get(m[1]))
+        results = iperfPairs({'time':seconds}, servers, clients) 
+        print results
+        writeOutJson(results, 'First_results.txt')	
 	net.stop()
 
 def main():
