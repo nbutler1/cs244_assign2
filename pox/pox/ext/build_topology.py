@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import json
+from multiprocessing.pool import ThreadPool
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
@@ -21,10 +22,10 @@ from collections import defaultdict
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
-num_servers = 686
-k_total_ports = 32
-r_reserved_ports = 25
-N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
+num_servers = 2
+k_total_ports = 2
+r_reserved_ports = 1
+N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports)))
 
 class JellyFishTop(Topo):
 
@@ -129,7 +130,6 @@ class JellyFishTop(Topo):
         for i in range(len(racks)):
             for j in switch_mappings[i]:
                 if j > i:
-                    print 's%d <-> s%d' % (i, j)
                     self.addLink(racks[i], racks[j])
 	print "Done bulding"
 
@@ -247,19 +247,54 @@ def get_permutation_map(server_list):
     random.shuffle(link_to)
   return zip(link_from, link_to)
 
+def run_iperf(arg):
+        net = arg[0]
+        m = arg[1]
+        s = arg[2]
+	""" Runs iperf.  Needed for multithreading. """
+	speeds = net.iperf(hosts=[net.get(m[0]), net.get(m[1])], seconds=s)
+	print "RETURNING"
+	return speeds
+
 def experiment(net):
+        """ Runs experiment"""
         net.start()
         sleep(3)
-        net.pingAll()
-        net.stop()
+        print "GETTING MATCHES"
+        matches = get_permutation_map(
+                ['h' + str(k) for k in range(num_servers)])
+	
+        # Loop through and run iperf on matches.  DO WE NEED TO MULTITHREAD??
+        seconds = 30 # How long to run iperf
+	tasks = [(net, m, seconds) for m in matches]
+        workers = ThreadPool(len(matches))
+        print "RUNNING IPERFS"
+        results =  workers.map_async(run_iperf, tasks)
+        #for m in matches:
+        #    print m
+	    #net.ping(hosts=[net.get(m[0]), net.get(m[1])])
+        #    speeds = net.iperf(hosts=[net.get(m[0]), net.get(m[1])], seconds=30)
+        #    print speeds
+	print "ALL SCHEDULED"
+	# results.wait()
+	# For some reason ^ isnt working this is my hack
+	sleep(seconds * 2)
+	print "DONE WAITING"
+	try:
+        	print results.get()
+        except Exception as e:
+		print e
+	
+	net.stop()
 
 def main():
         os.system('sudo mn -c')
 	topo = JellyFishTop()
-	#net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
-	print "GETTING SHORTEST PATH"
-        getShortestPathMeasures(topo)
-        #experiment(net)
+        #getShortestPathMeasures(topo)
+        print "BUILDING MININET"
+	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
+	print "RUNNING EXPERIMENT"
+        experiment(net)
 
 if __name__ == "__main__":
 	main()
