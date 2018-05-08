@@ -1,6 +1,8 @@
 
 import networkx as nx
 import pickle
+import json
+
 
 ROUTING_TYPE_ECMP8 = 0
 ROUTING_TYPE_ECMP64 = 1
@@ -16,6 +18,12 @@ class HomestretchRouting(object):
     self.routing_type = routing_type
     with open(path_to_file, 'r') as f:
       self.nx_graph = pickle.load(f)
+    with open('IPMAPPINGS', 'rb') as fp:
+      self.ip_mappings = json.load(fp)
+
+  def ip_lookup(s, d):
+    return self.ip_mappings[s], self.ip_mappings[d]
+
 
   def get_route(self, src_name, dst_name, packet_hash):
     """Get list of names connecting src to dst.
@@ -28,6 +36,7 @@ class HomestretchRouting(object):
     Returns:
       A list of names, describing a simple path from src to dst.
     """
+    src_name, dst_name = self.ip_lookup(src_name, dst_name)
     path_generator = nx.shortest_simple_paths(self.nx_graph, src_name, dst_name)
     paths = []
     if self.routing_type == ROUTING_TYPE_ECMP8:
@@ -53,4 +62,4 @@ class HomestretchRouting(object):
 if __name__ == '__main__':
   # For testing
   r = HomestretchRouting(ROUTING_TYPE_8SP, 'TOPOLOGY')
-  print r.get_route('h0', 'h1', 0)
+  #print r.get_route('h0', 'h1', 0)

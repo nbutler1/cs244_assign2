@@ -30,6 +30,7 @@ from pox.lib.util import str_to_bool
 from pox.lib.packet.tcp import tcp
 from pox.lib.packet.udp import udp
 from pox.lib.packet.ipv4 import ipv4
+from pox.ext.homestretch_routing import HomestretchRouting
 
 import time
 
@@ -219,7 +220,7 @@ class homestretch (object):
   def __init__ (self, transparent):
     core.openflow.addListeners(self)
     self.transparent = transparent
-    self.r = getRoutingObject()
+    self.r = HomestretchRouting(0, 'TOPOLOGY')
 
   def _handle_ConnectionUp (self, event):
     log.debug("Connection %s" % (event.connection,))
