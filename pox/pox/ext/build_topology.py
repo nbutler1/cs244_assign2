@@ -276,8 +276,9 @@ def experiment(net):
         for m in matches:
             servers.append(net.get(m[0]))
             clients.append(net.get(m[1]))
+        print "CALL TO IPERF PAIRS"
         results = iperfPairs({'time':seconds}, servers, clients) 
-        print results
+        #print results
         writeOutJson(results, 'First_results.txt')	
 	net.stop()
 
