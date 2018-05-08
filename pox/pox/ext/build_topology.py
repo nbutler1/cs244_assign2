@@ -219,7 +219,7 @@ def ecmp_routing(matches, net, num):
 
         writeOutJson(link_counts, "ECMP_LINKS_" + str(num) + ".txt")
 
-def getShortestPathMeasures(net):
+def getShortestPathMeasures(nx_graph):
         link_counts = defaultdict(int)
         
         # First Randomly match servers
@@ -228,18 +228,13 @@ def getShortestPathMeasures(net):
         matches = get_permutation_map(
                 ['h' + str(k) for k in range(num_servers)])
 
-        # Convert to multiclass thing
-        print "CONVERTING"
-        new_topo = net.convertTo(nx.MultiGraph)
-	new_topo = nx.Graph(new_topo)
-	print new_topo.__len__() 
         # Now, get shortest paths
         print "8SP"
-        eight_shortest_paths(matches, new_topo)
+        eight_shortest_paths(matches, nx_graph)
         print "ECMP 8"
-        ecmp_routing(matches, new_topo, 8)
+        ecmp_routing(matches, nx_graph, 8)
         print "ECMP 64"
-        ecmp_routing(matches, new_topo, 64)
+        ecmp_routing(matches, nx_graph, 64)
 
 def get_permutation_map(server_list):
   """Each member of the set must be mapped to a different member of the set."""
@@ -301,13 +296,20 @@ def experiment(net):
 
 def main():
         os.system('sudo mn -c')
-	topo = JellyFishTop()
+	jelly_topo = JellyFishTop()
+        print "CONVERTING"
+        nx_graph = nx.Graph(jelly_topo.convertTo(nx.MultiGraph))
+        print nx_graph.__len__()
+        print nx_graph.nodes()
+        print "s0 neighbors = " + str(nx_graph.neighbors('s0'))
+        print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
         with open('TOPOLOGY', 'w') as f:
-            pickle.dump(topo, f)
-        createIPMappings(topo.hosts())
-        #getShortestPathMeasures(topo)
+            pickle.dump(nx_graph, f)
+        createIPMappings(jelly_topo.hosts())
+        #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
-	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
+	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+                      controller=JELLYPOX)
 	print "RUNNING EXPERIMENT"
         setIPs(net)
         experiment(net)
