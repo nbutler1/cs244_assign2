@@ -39,6 +39,7 @@ log = core.getLogger()
 # We don't want to flood immediately when a switch connects.
 # Can be overriden on commandline.
 _flood_delay = 0
+IP_TYPE    = 0x0800
 
 class BadassSwitch (object):
   """
@@ -97,7 +98,6 @@ class BadassSwitch (object):
     # We just use this to know when to log a helpful message
     self.hold_down_expired = _flood_delay == 0
     self.r = routing_object
-    self.t = self.r.topo
     self.dpid = dpid
 
     #log.debug("Initializing LearningSwitch, transparent=%s",
@@ -186,7 +186,8 @@ class BadassSwitch (object):
       port = self.macToPort[packet.dst]
       # Get route for
       if packet.type == IP_TYPE:
-        ip_pack = packet.parsed
+	ip_pack = packet.next
+        log.info("source: " + str(ip_pack.srcip))
         route = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet)) 
         next_dpid = -1
         for i in range(len(route)):
@@ -220,7 +221,7 @@ class homestretch (object):
   def __init__ (self, transparent):
     core.openflow.addListeners(self)
     self.transparent = transparent
-    self.r = HomestretchRouting(0, 'TOPOLOGY')
+    self.r = HomestretchRouting(0, './pox/ext/TOPOLOGY')
 
   def _handle_ConnectionUp (self, event):
     log.debug("Connection %s" % (event.connection,))
@@ -231,6 +232,7 @@ def launch (transparent=False, hold_down=_flood_delay):
   """
   Starts an L2 learning switch.
   """
+  log.debug("FUCK YOU IM HERE")
   try:
     global _flood_delay
     _flood_delay = int(str(hold_down), 10)

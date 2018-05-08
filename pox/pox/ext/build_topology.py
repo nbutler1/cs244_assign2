@@ -258,18 +258,22 @@ def createIPMappings(hosts):
     ip_first = '10.0.'
     ip_second = 0
     ip_third = 1
+    reverse_mapping = {}
     for i in range(len(hosts)):
         ip_str = ip_first + str(ip_second)  + '.' + str(ip_third)
-        ip_mappings[hosts[i]] = ip_str
+        ip_mappings[ip_str] = hosts[i]
+        reverse_mapping[hosts[i]] = ip_str
         ip_third += 1
         if ip_third == 256:
             ip_third = 0
             ip_second += 1
     writeOutJson(ip_mappings, "IPMAPPINGS.json") 
+    print reverse_mapping
+    return reverse_mapping
 
-def setIPs(net):
-    for host in ip_mappings.keys():
-        net.get(host).setIP(ip_mappings[host])
+def setIPs(net, reverse_map):
+    for host in reverse_map.keys():
+        net.get(host).setIP(reverse_map[host])
 
 
 def experiment(net):
@@ -305,13 +309,13 @@ def main():
         print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
         with open('TOPOLOGY', 'w') as f:
             pickle.dump(nx_graph, f)
-        createIPMappings(jelly_topo.hosts())
+        reverse_map = createIPMappings(jelly_topo.hosts())
         #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
 	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
                       controller=JELLYPOX)
 	print "RUNNING EXPERIMENT"
-        setIPs(net)
+        setIPs(net, reverse_map)
         experiment(net)
 
 if __name__ == "__main__":

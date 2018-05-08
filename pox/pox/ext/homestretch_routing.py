@@ -18,10 +18,12 @@ class HomestretchRouting(object):
     self.routing_type = routing_type
     with open(path_to_file, 'r') as f:
       self.nx_graph = pickle.load(f)
-    with open('IPMAPPINGS', 'rb') as fp:
+    with open('./pox/ext/IPMAPPINGS.json', 'rb') as fp:
       self.ip_mappings = json.load(fp)
 
-  def ip_lookup(s, d):
+  def ip_lookup(self, s, d):
+    for k in self.ip_mappings.keys():
+      print k
     return self.ip_mappings[s], self.ip_mappings[d]
 
 
@@ -36,7 +38,7 @@ class HomestretchRouting(object):
     Returns:
       A list of names, describing a simple path from src to dst.
     """
-    src_name, dst_name = self.ip_lookup(src_name, dst_name)
+    src_name, dst_name = self.ip_lookup(str(src_name), str(dst_name))
     path_generator = nx.shortest_simple_paths(self.nx_graph, src_name, dst_name)
     paths = []
     if self.routing_type == ROUTING_TYPE_ECMP8:

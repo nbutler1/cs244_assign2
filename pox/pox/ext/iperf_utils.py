@@ -161,7 +161,7 @@ def iperfPairs( opts, clients, servers ):
     info( '\n' )
     print( "*** Starting iperf clients\n" )
     for src, dest in plist:
-        src.sendCmd( "sleep 1; iperf -t %s -i .5 -c %s" % (
+        src.sendCmd( "sleep 1; iperf -t %s -c %s" % (
             opts['time'], dest.IP() ) )
     #info( '*** Running cpu and packet count monitor\n' )
     #startTime = int( time() )
