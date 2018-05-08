@@ -302,14 +302,14 @@ def experiment(net):
 def main():
         os.system('sudo mn -c')
 	topo = JellyFishTop()
-        #with open('TOPOLOGY', 'W') as f:
-        #    pickle.dump(topo, f)
-        #createIPMappings(topo.hosts())
+        with open('TOPOLOGY', 'w') as f:
+            pickle.dump(topo, f)
+        createIPMappings(topo.hosts())
         #getShortestPathMeasures(topo)
         print "BUILDING MININET"
 	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
 	print "RUNNING EXPERIMENT"
-        #setIPs(net)
+        setIPs(net)
         experiment(net)
 
 if __name__ == "__main__":
