@@ -26,6 +26,8 @@ num_servers = 2
 k_total_ports = 2
 r_reserved_ports = 1
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports)))
+ip_mappings = {}
+
 
 class JellyFishTop(Topo):
 
@@ -256,8 +258,22 @@ def run_iperf(arg):
 	print "RETURNING"
 	return speeds
 
+def createIPMappings(hosts):
+    ip_first = '10.0.'
+    ip_second = 0
+    ip_third = 1
+    for i in range(len(hosts)):
+        ip_str = ip_first + str(ip_second)  + '.' + str(ip_third)
+        ip_mappings[hosts[i]] = ip_str
+        ip_third += 1
+        if ip_third == 256:
+            ip_third = 0
+            ip_second += 1
+    writeOutJson(ip_mappings, "IPMAPPINGS.json") 
 
-
+def setIPs(net):
+    for host in ip_mappings.keys():
+        net.get(host).setIP(ip_mappings[host])
 
 
 def experiment(net):
@@ -285,10 +301,12 @@ def experiment(net):
 def main():
         os.system('sudo mn -c')
 	topo = JellyFishTop()
+        createIPMappings(topo.hosts())
         #getShortestPathMeasures(topo)
         print "BUILDING MININET"
 	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
 	print "RUNNING EXPERIMENT"
+        setIPs(net)
         experiment(net)
 
 if __name__ == "__main__":
