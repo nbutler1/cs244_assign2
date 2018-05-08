@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import json
+import pickle
 from multiprocessing.pool import ThreadPool
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -301,12 +302,14 @@ def experiment(net):
 def main():
         os.system('sudo mn -c')
 	topo = JellyFishTop()
-        createIPMappings(topo.hosts())
+        #with open('TOPOLOGY', 'W') as f:
+        #    pickle.dump(topo, f)
+        #createIPMappings(topo.hosts())
         #getShortestPathMeasures(topo)
         print "BUILDING MININET"
 	net = Mininet(topo=topo, host=CPULimitedHost, link = TCLink, controller=JELLYPOX)
 	print "RUNNING EXPERIMENT"
-        setIPs(net)
+        #setIPs(net)
         experiment(net)
 
 if __name__ == "__main__":
