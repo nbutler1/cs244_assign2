@@ -154,8 +154,7 @@ def iperfPairs( opts, clients, servers ):
         dest.cmd( "iperf -s &" )
     print( "*** Waiting for servers to start listening\n" )
     for src, dest in plist:
-        print( dest.name, '' )
-        print( src.name, '' )
+        info( dest.name, '' )
         while not listening( src, dest ):
             info( '.' )
             sleep( .5 )
@@ -169,7 +168,7 @@ def iperfPairs( opts, clients, servers ):
     #cmd = "./packetcount %s .5" % ( opts['time'] + 2 )
     #stats = quietRun( cmd  )
     #intfEntries, cpuEntries = parseIntfStats( startTime, stats )
-    print( "*** Waiting for clients to complete\n" )
+    info( "*** Waiting for clients to complete\n" )
     results = []
     for src, dest in plist:
         result = src.waitOutput()
