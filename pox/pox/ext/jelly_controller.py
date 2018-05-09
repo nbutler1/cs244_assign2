@@ -27,6 +27,7 @@ from pox.core import core
 from pox.lib.packet.tcp import tcp
 from pox.lib.packet.udp import udp
 from pox.lib.packet.ipv4 import ipv4
+from pox.lib.packet.arp import arp
 import pox.openflow.libopenflow_01 as of
 from pox.ext.homestretch_routing import HomestretchRouting
 
@@ -40,11 +41,13 @@ class Tutorial (object):
   A Tutorial object is created for each switch that connects.
   A Connection object for that switch is passed to the __init__ function.
   """
-  def __init__ (self, connection):
+  def __init__ (self, event):
     # Keep track of the connection to the switch so that we can
     # send it messages!
+    connection = event.connection
+    self.dpid = event.dpid
     self.connection = connection
-
+    
     # This binds our PacketIn event listener
     connection.addListeners(self)
 
@@ -79,11 +82,11 @@ class Tutorial (object):
       msg = of.ofp_packet_out()
       msg.data = packet_in
     else:
-      msg = of.ofp_packet_out(in_port=of.OFPP_NONE, data = event.ofp)
-      #msg = of.ofp_flow_mod()
-      #msg.data = event.ofp 
-      #msg.idle_timeout = 10
-      #msg.hard_timeout = 30
+      #msg = of.ofp_packet_out(in_port=of.OFPP_NONE, data = event.ofp)
+      msg = of.ofp_flow_mod()
+      msg.data = event.ofp 
+      msg.idle_timeout = 10
+      msg.hard_timeout = 30
     # Add an action to send to the specified port
     action = of.ofp_action_output(port = out_port)
     msg.actions.append(action)
@@ -146,10 +149,15 @@ class Tutorial (object):
       self.resend_packet(packet_in, of.OFPP_ALL)
 
     """
+    #if isinstance(packet.next, arp) and packet.next.opcode > 1:
+    #  return
+    if packet.src not in self.mac_to_port:
+      self.mac_to_port[packet.src] = event.port
+
     if isinstance(packet.next, ipv4) and event.dpid < 1000:
       ip_pack = packet.next
       #log.info("source: " + str(ip_pack.srcip))
-      route, p = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet), 's' + str(event.dpid)) 
+      route, p = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet), 's' + str(self.dpid)) 
       if p is not None:
         log.info("Sending out specified port")
         port = p
@@ -157,9 +165,15 @@ class Tutorial (object):
         return
       else:
         log.info("PORT IS NONE ERROR")
-    log.info(packet.next)
-    self.resend_packet(packet_in, of.OFPP_ALL) 
-
+    if packet.dst not in self.mac_to_port:
+      print "HAVE NOT SEEN MAC ADDRESS"
+      log.info(packet.next)
+      self.resend_packet(packet_in, of.OFPP_ALL) 
+    else:
+      print "ALREADY SEEN MAC ADDRESS!!"
+      #log.info(packet.next)
+      self.resend_packet(packet_in, self.mac_to_port[packet.dst], event)
+    
 
   def _handle_PacketIn (self, event):
     """
@@ -190,5 +204,5 @@ def launch ():
   """
   def start_switch (event):
     log.debug("Controlling %s" % (event.connection,))
-    Tutorial(event.connection)
+    Tutorial(event)
   core.openflow.addListenerByName("ConnectionUp", start_switch)
