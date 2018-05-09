@@ -23,7 +23,7 @@ from pox.ext.iperf_utils import iperfPairs
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
-num_servers = 3
+num_servers = 10
 k_total_ports = 3
 r_reserved_ports = 2
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
@@ -86,10 +86,10 @@ class JellyFishTop(Topo):
         current_switch = self.addSwitch('s' + str(len(racks) + 1))
 	fencepost = True
         for i in range(num_servers):
-            next_server = self.addHost('h' + str(i))
+            next_server = self.addHost('h' + str(i + 1))
             self.addLink(current_switch, next_server)
             rack_count += 1
-            if rack_count == k_total_ports - r_reserved_ports:
+            if rack_count == (k_total_ports - r_reserved_ports):
                 rack_count = 0
                 racks.append(current_switch)
                 if i == num_servers - 1:
@@ -159,11 +159,14 @@ class JellyFishTop(Topo):
                 saturated_switches.append(s2)
             switch_wire_count += 1
 
+        switches = self.switches()
+        print switches
         for i in range(len(racks)):
             for j in switch_mappings[i]:
-                #if j > i:
-                self.addLink(racks[i], racks[j])
+                if j > i:
+                    self.addLink(racks[i], racks[j])
         print switch_mappings
+        print racks
 	print "Done bulding"
 
 def writeOutJson(link_counts, filename):
@@ -312,7 +315,7 @@ def experiment(net):
         sleep(3)
         print "GETTING MATCHES"
         matches = get_permutation_map(
-                ['h' + str(k) for k in range(num_servers)])
+                ['h' + str(k + 1) for k in range(num_servers)])
 	
         # Loop through and run iperf on matches.  DO WE NEED TO MULTITHREAD??
         seconds = 30 # How long to run iperf
@@ -322,19 +325,19 @@ def experiment(net):
         for m in matches:
             servers.append(net.get(m[0]))
             clients.append(net.get(m[1]))
-            print net.ping(hosts=[servers[-1], clients[-1]])
+            print net.ping(hosts=[net.get(m[0]), net.get(m[1])])
         print "CALL TO IPERF PAIRS"
         #h1 = net.get('h1')
         #h1.ping('h2')
         #h1.ping('h3')
-        #results = iperfPairs({'time':seconds}, servers, clients) 
+        results = iperfPairs({'time':seconds}, servers, clients) 
         #print results
         writeOutJson(results, 'First_results.txt')	
 	net.stop()
 
 def main():
         os.system('sudo mn -c')
-        testing = True
+        testing = False
         if testing:
             jelly_topo = pickle.load(open('testing_topo', 'rb'))
         else:
@@ -356,11 +359,11 @@ def main():
         #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
         #if testing:
-	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-                      controller=RemoteController)
-        #else:	
 	#net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-        #              controller=JELLYPOX)
+        #              controller=RemoteController)
+        #else:	
+	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+                      controller=JELLYPOX)
 
         print "RUNNING EXPERIMENT"
         setIPs(net, reverse_map)
