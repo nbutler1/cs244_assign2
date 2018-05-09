@@ -312,9 +312,9 @@ def experiment(net):
             servers.append(net.get(m[0]))
             clients.append(net.get(m[1]))
         print "CALL TO IPERF PAIRS"
-        h1 = net.get('h1')
-        h1.ping('h2')
-        h1.ping('h3')
+        #h1 = net.get('h1')
+        #h1.ping('h2')
+        #h1.ping('h3')
         results = iperfPairs({'time':seconds}, servers, clients) 
         #print results
         writeOutJson(results, 'First_results.txt')	
