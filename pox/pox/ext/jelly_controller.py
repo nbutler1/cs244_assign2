@@ -55,6 +55,7 @@ class Tutorial (object):
     # which switch port (keys are MACs, values are ports).
     self.mac_to_port = {}
     self.r = HomestretchRouting(0, './pox/ext/TOPOLOGY') 
+    self.dpid_to_mac = {}
 
   def _ecmp_hash(self, packet):
     ''' Return an ECMP-style 5-tuple hash for TCP/IP packets, otherwise 0.
@@ -109,6 +110,13 @@ class Tutorial (object):
     # sending it (len(packet_in.data) should be == packet_in.total_len)).
 
 
+  def get_hop(self, packet):
+      if isinstance(packet.next, ipv4):
+          next_hop = self.r.get_route(packet.next.srcip, packet.next.dstip, self._ecmp_hash(packet), 's' + str(self.dpid))
+          if next_hop != -1 and next_hop in self.dpid_to_mac:
+              return self.dpid_to_mac[next_hop]
+      return packet.dst
+
   def act_like_switch (self, packet, packet_in, event):
     """
     Implement switch-like behavior.
@@ -116,6 +124,11 @@ class Tutorial (object):
 
     if packet.src not in self.mac_to_port:
         self.mac_to_port[packet.src] = packet_in.in_port
+    if event.dpid not in self.dpid_to_mac:
+        self.dpid_to_mac[event.dpid] = packet.src
+    #log.info(self.dpid_to_mac)  
+
+
     """
     if isinstance(packet.next, ipv4) and event.dpid < 1000:
       ip_pack = packet.next
@@ -130,15 +143,17 @@ class Tutorial (object):
       else:
         log.info("PORT IS NONE ERROR")
     """
-    if packet.dst in self.mac_to_port:
+    next_hop = self.get_hop(packet)
+    if next_hop in self.mac_to_port:
+        log.info('Installing Flow from ' + str(self.dpid) + ' ' + str(next_hop))
         msg = of.ofp_flow_mod()
         msg.match = of.ofp_match.from_packet(packet)
         msg.match.idle_timeout = 10
         msg.match.hard_timeout = 30
-        action = of.ofp_action_output(port = self.mac_to_port[packet.dst])
+        action = of.ofp_action_output(port = self.mac_to_port[next_hop])
         msg.actions.append(action)
         self.connection.send(msg)
-        self.resend_packet(packet_in, self.mac_to_port[packet.dst])
+        self.resend_packet(packet_in, self.mac_to_port[next_hop])
     else:
         self.resend_packet(packet_in, of.OFPP_ALL)
     #if packet.dst not in self.mac_to_port:
@@ -169,7 +184,7 @@ class Tutorial (object):
     #print "Dest: " + str(packet.dst)
     #print "Event port: " + str(event.port)
     #self.act_like_hub(packet, packet_in)
-    log.info("packet in")
+    #log.info("packet in")
     self.act_like_switch(packet, packet_in, event)
 
 

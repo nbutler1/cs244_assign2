@@ -60,13 +60,15 @@ class HomestretchRouting(object):
     next_paths = [p for p in paths if dpid in p]
     paths = next_paths
     h = packet_hash % len(paths)
-    port = None
-    #print dpid
-    #print paths[h]
     ind = paths[h].index(dpid)
     if ind != -1 and ind < len(paths[h]) -1:
-      port = self.nx_graph.get_edge_data(paths[h][ind], paths[h][ind+1])['port1']
-    return paths[h], port
+      ret_val = paths[h][ind+1]
+      if 'h' in ret_val:
+        return -1
+      ret_val = ret_val.replace('s', '')
+      return int(ret_val)
+       #port = self.nx_graph.get_edge_data(paths[h][ind], paths[h][ind+1])['port1']
+    return -1
 
 
 if __name__ == '__main__':

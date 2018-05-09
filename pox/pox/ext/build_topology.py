@@ -337,7 +337,7 @@ def experiment(net):
 
 def main():
         os.system('sudo mn -c')
-        testing = False
+        testing = True
         if testing:
             jelly_topo = pickle.load(open('testing_topo', 'rb'))
         else:
@@ -359,11 +359,11 @@ def main():
         #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
         #if testing:
-	#net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-        #              controller=RemoteController)
-        #else:	
 	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-                      controller=JELLYPOX)
+                      controller=RemoteController)
+        #else:	
+	#net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+        #              controller=JELLYPOX)
 
         print "RUNNING EXPERIMENT"
         setIPs(net, reverse_map)
