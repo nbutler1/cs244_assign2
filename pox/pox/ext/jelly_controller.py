@@ -78,15 +78,14 @@ class Tutorial (object):
     "packet_in" is the ofp_packet_in object the switch had sent to the
     controller due to a table-miss.
     """
-    if event is None:
-      msg = of.ofp_packet_out()
-      msg.data = packet_in
-    else:
+    msg = of.ofp_packet_out()
+    msg.data = packet_in
+    #else:
       #msg = of.ofp_packet_out(in_port=of.OFPP_NONE, data = event.ofp)
-      msg = of.ofp_flow_mod()
-      msg.data = event.ofp 
-      msg.idle_timeout = 10
-      msg.hard_timeout = 30
+    #  msg = of.ofp_flow_mod()
+    #  msg.data = event.ofp 
+    #  msg.idle_timeout = 10
+    #  msg.hard_timeout = 30
     # Add an action to send to the specified port
     action = of.ofp_action_output(port = out_port)
     msg.actions.append(action)
@@ -115,48 +114,13 @@ class Tutorial (object):
     Implement switch-like behavior.
     """
 
-    """ # DELETE THIS LINE TO START WORKING ON THIS (AND THE ONE BELOW!) #
-
-    # Here's some psuedocode to start you off implementing a learning
-    # switch.  You'll need to rewrite it as real Python code.
-
-    # Learn the port for the source MAC
-    self.mac_to_port ... <add or update entry>
-
-    if the port associated with the destination MAC of the packet is known:
-      # Send packet out the associated port
-      self.resend_packet(packet_in, ...)
-
-      # Once you have the above working, try pushing a flow entry
-      # instead of resending the packet (comment out the above and
-      # uncomment and complete the below.)
-
-      log.debug("Installing flow...")
-      # Maybe the log statement should have source/destination/port?
-
-      #msg = of.ofp_flow_mod()
-      #
-      ## Set fields to match received packet
-      #msg.match = of.ofp_match.from_packet(packet)
-      #
-      #< Set other fields of flow_mod (timeouts? buffer_id?) >
-      #
-      #< Add an output action, and send -- similar to resend_packet() >
-
-    else:
-      # Flood the packet out everything but the input port
-      # This part looks familiar, right?
-      self.resend_packet(packet_in, of.OFPP_ALL)
-
-    """
-    #if isinstance(packet.next, arp) and packet.next.opcode > 1:
-    #  return
     if packet.src not in self.mac_to_port:
-      self.mac_to_port[packet.src] = event.port
-
+        self.mac_to_port[packet.src] = packet_in.in_port
+    """
     if isinstance(packet.next, ipv4) and event.dpid < 1000:
       ip_pack = packet.next
-      #log.info("source: " + str(ip_pack.srcip))
+      log.info("source: " + str(ip_pack.srcip))
+      print "GETTING ROUTING INFORMATION"
       route, p = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet), 's' + str(self.dpid)) 
       if p is not None:
         log.info("Sending out specified port")
@@ -165,14 +129,26 @@ class Tutorial (object):
         return
       else:
         log.info("PORT IS NONE ERROR")
-    if packet.dst not in self.mac_to_port:
-      print "HAVE NOT SEEN MAC ADDRESS"
-      log.info(packet.next)
-      self.resend_packet(packet_in, of.OFPP_ALL) 
+    """
+    if packet.dst in self.mac_to_port:
+        msg = of.ofp_flow_mod()
+        msg.match = of.ofp_match.from_packet(packet)
+        msg.match.idle_timeout = 10
+        msg.match.hard_timeout = 30
+        action = of.ofp_action_output(port = self.mac_to_port[packet.dst])
+        msg.actions.append(action)
+        self.connection.send(msg)
+        self.resend_packet(packet_in, self.mac_to_port[packet.dst])
     else:
-      print "ALREADY SEEN MAC ADDRESS!!"
+        self.resend_packet(packet_in, of.OFPP_ALL)
+    #if packet.dst not in self.mac_to_port:
+      #print "HAVE NOT SEEN MAC ADDRESS"
+    #log.info(packet.next)
+    #self.resend_packet(packet_in, of.OFPP_ALL) 
+    #else:
+    #  print "ALREADY SEEN MAC ADDRESS!!"
       #log.info(packet.next)
-      self.resend_packet(packet_in, self.mac_to_port[packet.dst], event)
+    #  self.resend_packet(packet_in, self.mac_to_port[packet.dst], event)
     
 
   def _handle_PacketIn (self, event):
@@ -193,7 +169,7 @@ class Tutorial (object):
     #print "Dest: " + str(packet.dst)
     #print "Event port: " + str(event.port)
     #self.act_like_hub(packet, packet_in)
-    #log.info("packet in")
+    log.info("packet in")
     self.act_like_switch(packet, packet_in, event)
 
 

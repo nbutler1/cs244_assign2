@@ -23,9 +23,9 @@ from pox.ext.iperf_utils import iperfPairs
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
-num_servers = 4
-k_total_ports = 4
-r_reserved_ports = 3
+num_servers = 3
+k_total_ports = 3
+r_reserved_ports = 2
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 ip_mappings = {}
 
@@ -72,7 +72,18 @@ class JellyFishTop(Topo):
 	print "Wiring Servers"
 	server_count = 0
         rack_count = 0
-        current_switch = self.addSwitch('s' + str(len(racks)))
+        """
+        for i in range(N_num_racks):
+          current_switch = self.addSwitch('s' + str(i))
+          servers_on_switch = 0
+          while server_count < num_servers and servers_on_switch < k_total_ports - r_reserved_ports:
+            next_server = self.addHost('h' + str(server_count))
+            self.addLink(current_switch, next_server)
+            server_count += 1
+            servers_on_switch += 1
+          racks.append(current_switch)
+	"""
+        current_switch = self.addSwitch('s' + str(len(racks) + 1))
 	fencepost = True
         for i in range(num_servers):
             next_server = self.addHost('h' + str(i))
@@ -84,10 +95,10 @@ class JellyFishTop(Topo):
                 if i == num_servers - 1:
                     fencepost = False
                 else:
-                    current_switch = self.addSwitch('s' + str(len(racks)))
+                    current_switch = self.addSwitch('s' + str(len(racks) + 1))
         if fencepost:
             racks.append(current_switch)            
- 
+	print racks 
             
 	# Mapping from switch index to indices it's mapped to
 	print "Wiring Switches"
@@ -150,8 +161,8 @@ class JellyFishTop(Topo):
 
         for i in range(len(racks)):
             for j in switch_mappings[i]:
-                if j > i:
-                    self.addLink(racks[i], racks[j])
+                #if j > i:
+                self.addLink(racks[i], racks[j])
         print switch_mappings
 	print "Done bulding"
 
@@ -311,11 +322,12 @@ def experiment(net):
         for m in matches:
             servers.append(net.get(m[0]))
             clients.append(net.get(m[1]))
+            print net.ping(hosts=[servers[-1], clients[-1]])
         print "CALL TO IPERF PAIRS"
         #h1 = net.get('h1')
         #h1.ping('h2')
         #h1.ping('h3')
-        results = iperfPairs({'time':seconds}, servers, clients) 
+        #results = iperfPairs({'time':seconds}, servers, clients) 
         #print results
         writeOutJson(results, 'First_results.txt')	
 	net.stop()
@@ -343,12 +355,12 @@ def main():
         reverse_map = createIPMappings(jelly_topo.hosts())
         #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
-        if testing:
-	    net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+        #if testing:
+	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
                       controller=RemoteController)
-        else:	
-	    net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-                      controller=JELLYPOX)
+        #else:	
+	#net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+        #              controller=JELLYPOX)
 
         print "RUNNING EXPERIMENT"
         setIPs(net, reverse_map)
