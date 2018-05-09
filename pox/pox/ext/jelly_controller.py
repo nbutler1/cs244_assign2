@@ -21,10 +21,17 @@ learning switch.
 It's roughly similar to the one Brandon Heller did for NOX.
 """
 
+from struct import pack
+from zlib import crc32
 from pox.core import core
+from pox.lib.packet.tcp import tcp
+from pox.lib.packet.udp import udp
+from pox.lib.packet.ipv4 import ipv4
 import pox.openflow.libopenflow_01 as of
+from pox.ext.homestretch_routing import HomestretchRouting
 
 log = core.getLogger()
+IP_TYPE    = 0x0800
 
 
 
@@ -44,7 +51,23 @@ class Tutorial (object):
     # Use this table to keep track of which ethernet address is on
     # which switch port (keys are MACs, values are ports).
     self.mac_to_port = {}
+    self.r = HomestretchRouting(0, './pox/ext/TOPOLOGY') 
 
+  def _ecmp_hash(self, packet):
+    ''' Return an ECMP-style 5-tuple hash for TCP/IP packets, otherwise 0.
+    RFC2992 '''
+    hash_input = [0] * 5
+    if isinstance(packet.next, ipv4):
+      ip = packet.next
+      hash_input[0] = ip.srcip.toUnsigned()
+      hash_input[1] = ip.dstip.toUnsigned()
+      hash_input[2] = ip.protocol
+      if isinstance(ip.next, tcp) or isinstance(ip.next, udp):
+        l4 = ip.next
+        hash_input[3] = l4.srcport
+        hash_input[4] = l4.dstport
+        return crc32(pack('LLHHH', *hash_input))
+      return 0
 
   def resend_packet (self, packet_in, out_port):
     """
@@ -78,7 +101,7 @@ class Tutorial (object):
     # sending it (len(packet_in.data) should be == packet_in.total_len)).
 
 
-  def act_like_switch (self, packet, packet_in):
+  def act_like_switch (self, packet, packet_in, event):
     """
     Implement switch-like behavior.
     """
@@ -116,7 +139,20 @@ class Tutorial (object):
       # This part looks familiar, right?
       self.resend_packet(packet_in, of.OFPP_ALL)
 
-    """ # DELETE THIS LINE TO START WORKING ON THIS #
+    """
+    if isinstance(packet.next, ipv4) and event.dpid < 1000:
+      ip_pack = packet.next
+      #log.info("source: " + str(ip_pack.srcip))
+      route, p = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet), 's' + str(event.dpid)) 
+      if p is not None:
+        #log.info("Sending out specified port")
+        port = p
+        self.resend_packet(packet_in, p)
+        return
+      else:
+        log.info("PORT IS NONE ERROR")
+    #log.info("BroadCasting")
+    self.resend_packet(packet_in, of.OFPP_ALL) 
 
 
   def _handle_PacketIn (self, event):
@@ -130,15 +166,15 @@ class Tutorial (object):
       return
 
     packet_in = event.ofp # The actual ofp_packet_in message.
-
+    #print event.dpid
     # Comment out the following line and uncomment the one after
     # when starting the exercise.
-    print "Src: " + str(packet.src)
-    print "Dest: " + str(packet.dst)
-    print "Event port: " + str(event.port)
-    self.act_like_hub(packet, packet_in)
-    log.info("packet in")
-    #self.act_like_switch(packet, packet_in)
+    #print "Src: " + str(packet.src)
+    #print "Dest: " + str(packet.dst)
+    #print "Event port: " + str(event.port)
+    #self.act_like_hub(packet, packet_in)
+    #log.info("packet in")
+    self.act_like_switch(packet, packet_in, event)
 
 
 

@@ -23,10 +23,10 @@ from pox.ext.iperf_utils import iperfPairs
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
-num_servers = 2
-k_total_ports = 2
-r_reserved_ports = 1
-N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports)))
+num_servers = 3
+k_total_ports = 3
+r_reserved_ports = 2
+N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 ip_mappings = {}
 
 
@@ -37,12 +37,15 @@ class JellyFishTop(Topo):
         available_switches = list(set(all_switches) - set(switch_mappings[s1]))
         s3 = None
         while s3 is None:
+            if len(available_switches) == 0:
+                return switch_wire_count
             s2 = available_switches[random.randint(0, len(available_switches)-1)]
 	    available_switches.remove(s2)        
-
             # Get a swtich connected to s2 but not s2
             s3_candidates = [elem for elem in switch_mappings[s2] if elem in available_switches]
             if len(s3_candidates) == 0:
+            	if available_switches == []:
+                    return switch_wire_count
                 available_switches.append(s2)
                 continue
             s3 = s3_candidates[random.randint(0, len(s3_candidates)-1)]
@@ -68,30 +71,43 @@ class JellyFishTop(Topo):
         # Wire up servers
 	print "Wiring Servers"
 	server_count = 0
-	for i in range(N_num_racks):
-	    current_switch = self.addSwitch('s' + str(i))
-	    servers_on_switch = 0
-	    while server_count < num_servers and servers_on_switch < k_total_ports - r_reserved_ports:
-                next_server = self.addHost('h' + str(server_count))
-		self.addLink(current_switch, next_server)
-                server_count += 1
-                servers_on_switch += 1
-            racks.append(current_switch)
-
+        rack_count = 0
+        current_switch = self.addSwitch('s' + str(len(racks)))
+	fencepost = True
+        for i in range(num_servers):
+            next_server = self.addHost('h' + str(i))
+            self.addLink(current_switch, next_server)
+            rack_count += 1
+            if rack_count == k_total_ports - r_reserved_ports:
+                rack_count = 0
+                racks.append(current_switch)
+                if i == num_servers - 1:
+                    fencepost = False
+                else:
+                    current_switch = self.addSwitch('s' + str(len(racks)))
+        if fencepost:
+            racks.append(current_switch)            
+ 
+            
 	# Mapping from switch index to indices it's mapped to
 	print "Wiring Switches"
 	switch_mappings = {i: [] for i in range(len(racks))}
 	saturated_switches = []
 	all_switches = [i for i in range(len(racks))]
 	switch_wire_count = 0
-	while switch_wire_count < (N_num_racks * r_reserved_ports):
-	    switches_left = list(set(all_switches) - set(saturated_switches))
+	
+	while switch_wire_count < (len(racks) * r_reserved_ports) and len(saturated_switches) < len(racks):
+            switches_left = list(set(all_switches) - set(saturated_switches))
+            #print switch_mappings
+            #print saturated_switches
+            #print "-----------------------------------"
             if len(switches_left) == 0:
 	        break
 	    if len(switches_left) == 1:
                 s1 = switches_left[0]
                 # Just have an odd port left so we are done...
                 if len(switch_mappings[s1]) >= r_reserved_ports - 1:
+                    #print "Breaking out here.."
                     break
 		switch_wire_count = self.no_mappings_left(s1, switch_mappings, racks, saturated_switches, switch_wire_count, all_switches)
 		continue
@@ -100,16 +116,16 @@ class JellyFishTop(Topo):
 	    index = random.randint(0, len(switches_left)-1)
             s1 = switches_left[index]
             available_mappings = list(set(switches_left) - set(switch_mappings[s1]))
-            if len(available_mappings) == 1:
+            if len(available_mappings) <= 1:
                 for i in range(len(switches_left)):
-	    	    #index = random.randint(0, len(switches_left)-1)
-                    s1 = switches_left[i]
+	    	    index = random.randint(0, len(switches_left)-1)
+                    #s1 = switches_left[i]
                     available_mappings = list(set(switches_left) - set(switch_mappings[s1]))
                     if len(available_mappings) >= 2:
                         break                   
  
             available_mappings.remove(s1)
-            
+             
 	    # If no available mappings, need to remove a link
             if len(available_mappings) == 0:
 		switch_wire_count = self.no_mappings_left(s1, switch_mappings, racks, saturated_switches, switch_wire_count, all_switches)
@@ -122,11 +138,13 @@ class JellyFishTop(Topo):
 	    # Update mappings
             switch_mappings[s1].append(s2)
             switch_mappings[s2].append(s1)
+             
+            #print "Mapping: " + str(s1) + '->' + str(s2)
 
             # Update saturated list
-            if len(switch_mappings[s1]) >= r_reserved_ports:
+            if len(switch_mappings[s1]) >= r_reserved_ports or len(switch_mappings[s1]) >= len(racks) - 1:
                 saturated_switches.append(s1)
-            if len(switch_mappings[s2]) >= r_reserved_ports:
+            if len(switch_mappings[s2]) >= r_reserved_ports or len(switch_mappings[s2]) >= len(racks) - 1:
                 saturated_switches.append(s2)
             switch_wire_count += 1
 
@@ -134,7 +152,8 @@ class JellyFishTop(Topo):
             for j in switch_mappings[i]:
                 if j > i:
                     self.addLink(racks[i], racks[j])
-	print "Done bulding"
+        #print switch_mappings
+	#print "Done bulding"
 
 def writeOutJson(link_counts, filename):
         with open(filename, 'w') as file:
@@ -169,7 +188,7 @@ def eight_shortest_paths(matches, net):
                 link_counts['%s-%s' % (link[0], link[1])] = 0
                 link_counts['%s-%s' % (link[1], link[0])] = 0
         for pair in matches:
-            print pair
+            #print pair
             shortest_paths = nx.shortest_simple_paths
             if CHOOSE_EQUAL_PATHS_FAIRLY:
               shortest_paths = randomized_shortest_simple_paths
@@ -199,7 +218,7 @@ def ecmp_routing(matches, net, num):
 	    paths = shortest_paths(net, pair[0], pair[1])
             paths_considered = []
 	    first = True
-            print '-----'
+            #print '-----'
             for p in paths:
 		if first:
 		    smallest_len = len(p)
@@ -268,7 +287,7 @@ def createIPMappings(hosts):
             ip_third = 0
             ip_second += 1
     writeOutJson(ip_mappings, "IPMAPPINGS.json") 
-    print reverse_mapping
+    #print reverse_mapping
     return reverse_mapping
 
 def setIPs(net, reverse_map):
@@ -303,10 +322,12 @@ def main():
 	jelly_topo = JellyFishTop()
         print "CONVERTING"
         nx_graph = nx.Graph(jelly_topo.convertTo(nx.MultiGraph))
-        print nx_graph.__len__()
-        print nx_graph.nodes()
-        print "s0 neighbors = " + str(nx_graph.neighbors('s0'))
-        print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
+        #print nx_graph.__len__()
+        #print nx_graph.nodes()
+        #print "s0 neighbors = " + str(nx_graph.neighbors('s0'))
+        #print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
+        #print "s1-s2 edge data = " + str(nx_graph.get_edge_data('s1', 's2'))
+        #print "s2-s0 edge data = " + str(nx_graph.get_edge_data('s0', 's2'))
         with open('TOPOLOGY', 'w') as f:
             pickle.dump(nx_graph, f)
         reverse_map = createIPMappings(jelly_topo.hosts())
