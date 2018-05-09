@@ -29,6 +29,11 @@ r_reserved_ports = 2
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 ip_mappings = {}
 
+# Set these variables
+old_topo = True # This sets if you are using a saved topology or a new one
+seconds = 60 # Number of seconds to run iperf for
+tcp8 = False # Set to true to run tcp 8 flows
+remote = True # Sets if you are running a remote controller       
 
 class JellyFishTop(Topo):
 
@@ -336,11 +341,6 @@ def experiment(net, seconds = 60, tcp8 = False):
 	net.stop()
 
 def main():
-	# Set these variables
-        old_topo = True # This sets if you are using a saved topology or a new one
-        seconds = 60 # Number of seconds to run iperf for
-        tcp8 = False # Set to true to run tcp 8 flows
-        remote = True # Sets if you are running a remote controller       
  
 
 	# Clear the mininet
