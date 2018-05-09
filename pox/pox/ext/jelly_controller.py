@@ -69,15 +69,21 @@ class Tutorial (object):
         return crc32(pack('LLHHH', *hash_input))
       return 0
 
-  def resend_packet (self, packet_in, out_port):
+  def resend_packet (self, packet_in, out_port, event = None):
     """
     Instructs the switch to resend a packet that it had sent to us.
     "packet_in" is the ofp_packet_in object the switch had sent to the
     controller due to a table-miss.
     """
-    msg = of.ofp_packet_out()
-    msg.data = packet_in
-
+    if event is None:
+      msg = of.ofp_packet_out()
+      msg.data = packet_in
+    else:
+      msg = of.ofp_packet_out(in_port=of.OFPP_NONE, data = event.ofp)
+      #msg = of.ofp_flow_mod()
+      #msg.data = event.ofp 
+      #msg.idle_timeout = 10
+      #msg.hard_timeout = 30
     # Add an action to send to the specified port
     action = of.ofp_action_output(port = out_port)
     msg.actions.append(action)
@@ -145,13 +151,13 @@ class Tutorial (object):
       #log.info("source: " + str(ip_pack.srcip))
       route, p = self.r.get_route(ip_pack.srcip, ip_pack.dstip, self._ecmp_hash(packet), 's' + str(event.dpid)) 
       if p is not None:
-        #log.info("Sending out specified port")
+        log.info("Sending out specified port")
         port = p
-        self.resend_packet(packet_in, p)
+        self.resend_packet(packet_in, p, event)
         return
       else:
         log.info("PORT IS NONE ERROR")
-    #log.info("BroadCasting")
+    log.info(packet.next)
     self.resend_packet(packet_in, of.OFPP_ALL) 
 
 

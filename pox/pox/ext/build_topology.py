@@ -23,9 +23,9 @@ from pox.ext.iperf_utils import iperfPairs
 
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
-num_servers = 3
-k_total_ports = 3
-r_reserved_ports = 2
+num_servers = 4
+k_total_ports = 4
+r_reserved_ports = 3
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 ip_mappings = {}
 
@@ -152,8 +152,8 @@ class JellyFishTop(Topo):
             for j in switch_mappings[i]:
                 if j > i:
                     self.addLink(racks[i], racks[j])
-        #print switch_mappings
-	#print "Done bulding"
+        print switch_mappings
+	print "Done bulding"
 
 def writeOutJson(link_counts, filename):
         with open(filename, 'w') as file:
@@ -319,7 +319,13 @@ def experiment(net):
 
 def main():
         os.system('sudo mn -c')
-	jelly_topo = JellyFishTop()
+        testing = True
+        if testing:
+            jelly_topo = pickle.load(open('testing_topo', 'rb'))
+        else:
+	    jelly_topo = JellyFishTop()
+            with open('testing_topo', 'w') as f:
+                pickle.dump(jelly_topo, f)
         print "CONVERTING"
         nx_graph = nx.Graph(jelly_topo.convertTo(nx.MultiGraph))
         #print nx_graph.__len__()
@@ -328,14 +334,20 @@ def main():
         #print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
         #print "s1-s2 edge data = " + str(nx_graph.get_edge_data('s1', 's2'))
         #print "s2-s0 edge data = " + str(nx_graph.get_edge_data('s0', 's2'))
-        with open('TOPOLOGY', 'w') as f:
-            pickle.dump(nx_graph, f)
+        if not testing:
+            with open('TOPOLOGY', 'w') as f:
+                pickle.dump(nx_graph, f)
         reverse_map = createIPMappings(jelly_topo.hosts())
         #getShortestPathMeasures(nx_topo)
         print "BUILDING MININET"
-	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+        if testing:
+	    net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+                      controller=RemoteController)
+        else:	
+	    net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
                       controller=JELLYPOX)
-	print "RUNNING EXPERIMENT"
+
+        print "RUNNING EXPERIMENT"
         setIPs(net, reverse_map)
         experiment(net)
 
