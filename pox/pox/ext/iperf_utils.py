@@ -90,8 +90,10 @@ def dictFromList( items ):
 
 def listening( src, dest, port=5001 ):
     "Return True if we can connect from src to dest on port"
+    #print "LISTENING"
     cmd = 'echo A | telnet -e A %s %s' % (dest.IP(), port)
     result = src.cmd( cmd )
+    #print result
     return 'Connected' in result
 
 def pct( x ):
@@ -141,7 +143,7 @@ def remoteIntf( intf ):
 
 # Iperf pair test
 
-def iperfPairs( opts, clients, servers ):
+def iperfPairs( opts, clients, servers, tcp8=False ):
     "Run iperf semi-simultaneously one way for all pairs"
     pairs = len( clients )
     plist = zip( clients, servers )
@@ -151,18 +153,22 @@ def iperfPairs( opts, clients, servers ):
     quietRun( "pkill -9 iperf" )
     print( "*** Starting iperf servers\n" )
     for dest in servers:
-        dest.cmd( "iperf -s &" )
+        print dest.cmd( "iperf -s &" )
     print( "*** Waiting for servers to start listening\n" )
     for src, dest in plist:
-        info( dest.name, '' )
+        print( src.name + '->' + dest.name  )
         while not listening( src, dest ):
             info( '.' )
             sleep( .5 )
     info( '\n' )
     print( "*** Starting iperf clients\n" )
     for src, dest in plist:
-        src.sendCmd( "sleep 1; iperf -t %s -c %s" % (
-            opts['time'], dest.IP() ) )
+        if tcp8:
+            src.sendCmd( "sleep 1; iperf -t %s -P 8 -c %s" % (
+              opts['time'], dest.IP() ) )
+        else:   
+            src.sendCmd( "sleep 1; iperf -t %s -c %s" % (
+              opts['time'], dest.IP() ) )
     #info( '*** Running cpu and packet count monitor\n' )
     #startTime = int( time() )
     #cmd = "./packetcount %s .5" % ( opts['time'] + 2 )

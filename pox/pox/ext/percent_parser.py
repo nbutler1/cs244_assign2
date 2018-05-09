@@ -7,7 +7,7 @@ and outputs the percent utiilization assuming a line rate
 speeds = []                    
 max_line_rate = 10.0              # Max line rate in Mbits/sec
 filename = 'First_results.txt'    # Filename with results
-print_individual_results = False  # Whether or not to print resutls
+print_individual_results = True  # Whether or not to print resutls
 
 with open(filename, 'rb') as f:
     dumped = json.load(f)

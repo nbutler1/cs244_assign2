@@ -24,7 +24,7 @@ from pox.ext.iperf_utils import iperfPairs
 # Choosing fairly takes significantly more time.
 CHOOSE_EQUAL_PATHS_FAIRLY = False
 num_servers = 10
-k_total_ports = 3
+k_total_ports = 4
 r_reserved_ports = 2
 N_num_racks = int(math.ceil(num_servers / (k_total_ports - r_reserved_ports))) + 1
 ip_mappings = {}
@@ -87,7 +87,7 @@ class JellyFishTop(Topo):
 	fencepost = True
         for i in range(num_servers):
             next_server = self.addHost('h' + str(i + 1))
-            self.addLink(current_switch, next_server)
+            self.addLink(current_switch, next_server, bw=10)
             rack_count += 1
             if rack_count == (k_total_ports - r_reserved_ports):
                 rack_count = 0
@@ -164,7 +164,7 @@ class JellyFishTop(Topo):
         for i in range(len(racks)):
             for j in switch_mappings[i]:
                 if j > i:
-                    self.addLink(racks[i], racks[j])
+                    self.addLink(racks[i], racks[j], bw=10)
         print switch_mappings
         print racks
 	print "Done bulding"
@@ -309,7 +309,7 @@ def setIPs(net, reverse_map):
         net.get(host).setIP(reverse_map[host])
 
 
-def experiment(net):
+def experiment(net, seconds = 60, tcp8 = False):
         """ Runs experiment"""
         net.start()
         sleep(3)
@@ -318,9 +318,9 @@ def experiment(net):
                 ['h' + str(k + 1) for k in range(num_servers)])
 	
         # Loop through and run iperf on matches.  DO WE NEED TO MULTITHREAD??
-        seconds = 30 # How long to run iperf
+        #seconds = 60 # How long to run iperf
 
-        print "RUNNING IPERFS"
+        print "Running Ping Tests"
         servers, clients = [], []
         for m in matches:
             servers.append(net.get(m[0]))
@@ -330,44 +330,54 @@ def experiment(net):
         #h1 = net.get('h1')
         #h1.ping('h2')
         #h1.ping('h3')
-        results = iperfPairs({'time':seconds}, servers, clients) 
+        results = iperfPairs({'time':seconds}, servers, clients, tcp8) 
         #print results
         writeOutJson(results, 'First_results.txt')	
 	net.stop()
 
 def main():
+	# Set these variables
+        old_topo = True # This sets if you are using a saved topology or a new one
+        seconds = 60 # Number of seconds to run iperf for
+        tcp8 = False # Set to true to run tcp 8 flows
+        remote = True # Sets if you are running a remote controller       
+ 
+
+	# Clear the mininet
         os.system('sudo mn -c')
-        testing = True
-        if testing:
+
+        # Buld topology or load one
+        if old_topo:
             jelly_topo = pickle.load(open('testing_topo', 'rb'))
         else:
 	    jelly_topo = JellyFishTop()
             with open('testing_topo', 'w') as f:
                 pickle.dump(jelly_topo, f)
+
+        # Convert to nx graph and pickle
         print "CONVERTING"
         nx_graph = nx.Graph(jelly_topo.convertTo(nx.MultiGraph))
-        #print nx_graph.__len__()
-        #print nx_graph.nodes()
-        #print "s0 neighbors = " + str(nx_graph.neighbors('s0'))
-        #print "s0-s1 edge data = " + str(nx_graph.get_edge_data('s0', 's1'))
-        #print "s1-s2 edge data = " + str(nx_graph.get_edge_data('s1', 's2'))
-        #print "s2-s0 edge data = " + str(nx_graph.get_edge_data('s0', 's2'))
-        if not testing:
+        if not old_topo:
             with open('TOPOLOGY', 'w') as f:
                 pickle.dump(nx_graph, f)
-        reverse_map = createIPMappings(jelly_topo.hosts())
-        #getShortestPathMeasures(nx_topo)
-        print "BUILDING MININET"
-        #if testing:
-	net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-                      controller=RemoteController)
-        #else:	
-	#net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
-        #              controller=JELLYPOX)
 
+        # Create ip mappings
+        reverse_map = createIPMappings(jelly_topo.hosts())
+        
+        # Build Mininet
+        print "BUILDING MININET"
+        # Use this if running a remote controller
+        if remote:
+	    net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+                      controller=RemoteController)
+	else:
+            net = Mininet(topo=jelly_topo, host=CPULimitedHost, link=TCLink,
+                      controller=JELLYPOX)
+
+        # Run the experiment
         print "RUNNING EXPERIMENT"
         setIPs(net, reverse_map)
-        experiment(net)
+        experiment(net, seconds, tcp8)
 
 if __name__ == "__main__":
 	main()
